@@ -1,6 +1,6 @@
-from langchain_community.chat_models.gigachat import GigaChat
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema.runnable import RunnablePassthrough, RunnableLambda
+from langchain_gigachat import GigaChat
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
 SYSTEM_PROMPT = """Ты — помощник студента ОмГТУ. Отвечай строго на основе предоставленного контекста.
 Если ответа в контексте нет — так и скажи, не придумывай.
