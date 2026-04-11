@@ -1,4 +1,4 @@
-from langchain_gigachat import GigaChat
+import requests
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 
@@ -10,17 +10,23 @@ SYSTEM_PROMPT = """Ты — помощник студента ОмГТУ. Отв
 Контекст:
 {context}"""
 
-def build_chain(collection, gigachat_credentials: str, top_k: int = 3):
-    llm = GigaChat(
-        credentials=gigachat_credentials,
-        verify_ssl_certs=False,
-        model="GigaChat"
-    )
 
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", SYSTEM_PROMPT),
-        ("human", "{question}")
-    ])
+def ask_ollama(prompt: str, model: str = "mistral") -> str:
+    response = requests.post(
+        "http://localhost:11434/api/chat",
+        json={
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": False,
+            "options": {"temperature": 0.1}
+        },
+        timeout=120
+    )
+    response.raise_for_status()
+    return response.json()["message"]["content"]
+
+
+def build_chain_mistral(collection, top_k: int = 3, model: str = "mistral"):
 
     def retrieve(query: str) -> str:
         results = collection.query(
@@ -30,15 +36,9 @@ def build_chain(collection, gigachat_credentials: str, top_k: int = 3):
         docs = results["documents"][0]
         return "\n\n".join(docs)
 
-    chain = (
-        {"context": RunnableLambda(retrieve), "question": RunnablePassthrough()}
-        | prompt
-        | llm
-    )
+    def chain_fn(question: str) -> str:
+        context = retrieve(question)
+        prompt = f"{SYSTEM_PROMPT.format(context=context)}\n\nВопрос: {question}"
+        return ask_ollama(prompt, model)
 
-    return chain
-
-if __name__ == "__main__":
-    collection = get_collection()
-    chain = build_chain(collection, os.getenv("GIGACHAT_CREDENTIALS"))
-    print(chain.invoke("Что такое академический отпуск?"))
+    return chain_fn
